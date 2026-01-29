@@ -2,8 +2,15 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import List
 import numpy as np
-from model_loader import load_best_model
+import sys
+from pathlib import Path
+
+# Add api directory to path
+sys.path.insert(0, str(Path(__file__).parent))
+# from model_loader import load_best_model
 import logging
+
+from model_loader import load_best_model
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
