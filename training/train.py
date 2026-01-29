@@ -1,5 +1,6 @@
 import mlflow 
 import mlflow.sklearn
+from mlflow.tracking import MlflowClient
 from sklearn.metrics import (
     accuracy_score, f1_score, roc_auc_score, 
     confusion_matrix, classification_report,
@@ -23,15 +24,12 @@ from data_validation import validate_dataset
 
 df = pd.read_csv("data/data.csv")
 
-# Validate dataset
+# validate dataset
 is_valid, validation_report = validate_dataset(df, target_column="Cluster")
 
 if not is_valid:
     print("\nWARNING: Data validation failed. Review issues above.")
     sys.exit(1)
-
-
-
 
 X = df.drop("Cluster", axis=1)
 y = df["Cluster"]
@@ -39,10 +37,9 @@ y = df["Cluster"]
 RANDOM_STATE = 42
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=RANDOM_STATE)
 
-# Fit scaler on training data for production use (data already scaled in CSV)
-
+# Fit scaler on training data for production use 
 scaler = StandardScaler()
-scaler.fit(X_train)  # Fit only, don't transform (data already scaled)
+scaler.fit(X_train)  
 
 
 # dataset info 
@@ -139,7 +136,7 @@ for name, (model, param_grid) in get_models_and_grids().items():
         for idx, value in enumerate(cm_flat):
             mlflow.log_metric(f"confusion_matrix_pos_{idx}", value)
         
-        #save confution metric image in mlflow artifact
+        # save confution metric image in mlflow artifact
         with tempfile.TemporaryDirectory() as tmpdir:
 
             tmp_path = os.path.join(tmpdir, 'confusion_matrix.png')
@@ -156,6 +153,7 @@ for name, (model, param_grid) in get_models_and_grids().items():
             mlflow.log_artifact(tmp_path, "confusion_matrix.png")
         
         # Save and log scaler
+        # in mlflow as artifact
         with tempfile.TemporaryDirectory() as tmpdir:
             scaler_path = os.path.join(tmpdir, 'scaler.pkl')
             with open(scaler_path, 'wb') as f:
@@ -188,7 +186,7 @@ try:
         mlflow.log_param("selection_metric", "val_roc_auc")
         mlflow.log_metric("best_val_roc_auc", best_overall_score)
         
-        # Register the model
+        # register the model
         model_uri = f"runs:/{best_overall_run_id}/model"
         model_details = mlflow.register_model(
             model_uri=model_uri,
@@ -200,5 +198,18 @@ try:
         print(f"  - Version: {model_details.version}")
         print(f"  - Run ID: {best_overall_run_id}")
         
+        # Promote model to Production stage
+        client = MlflowClient()
+        client.transition_model_version_stage(
+            name=model_name,
+            version=model_details.version,
+            stage="Production",
+            archive_existing_versions=True
+        )
+        
+        print(f"✓ Model promoted to Production stage!")
+        print(f"  - Stage: Production")
+        print(f"  - Previous versions archived")
+        
 except Exception as e:
-    print(f"✗ Failed to register model: {e}")
+    print(f"Failed to register or promote model: {e}")
