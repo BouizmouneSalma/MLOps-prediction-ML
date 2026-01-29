@@ -1,0 +1,10 @@
+xgboost
+scikit-learn
+pandas
+mlflow
+matplotlib
+seaborn
+numpy
+fastapi
+uvicorn
+pydantic
