@@ -1,10 +1,23 @@
 xgboost
 scikit-learn
 pandas
-mlflow
+numpy
 matplotlib
 seaborn
-numpy
+
+# MLflow for experiment tracking
+mlflow
+
+# API
 fastapi
 uvicorn
 pydantic
+
+# Testing
+pytest
+httpx
+
+# Code Quality
+black
+flake8
+pylint

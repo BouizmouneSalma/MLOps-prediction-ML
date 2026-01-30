@@ -1,0 +1,64 @@
+name: Release & Tag Management
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Generate Release Notes
+      id: release_notes
+      run: |
+        # Get the previous tag
+        PREV_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+        
+        # Generate changelog
+        if [ -z "$PREV_TAG" ]; then
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "Initial release" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: |
+          ## Changes in this Release
+          
+          ${{ steps.release_notes.outputs.CHANGELOG }}
+          
+          ## Docker Images
+          
+          - API: `ghcr.io/${{ github.repository }}-api:${{ github.ref_name }}`
+          - Training: `ghcr.io/${{ github.repository }}-train:${{ github.ref_name }}`
+          
+          ## Installation
+          
+          ```bash
+          docker pull ghcr.io/${{ github.repository }}-api:${{ github.ref_name }}
+          docker pull ghcr.io/${{ github.repository }}-train:${{ github.ref_name }}
+          ```
+        draft: false
+        prerelease: false

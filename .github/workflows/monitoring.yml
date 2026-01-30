@@ -1,0 +1,72 @@
+name: Model Performance Monitoring
+
+on:
+  schedule:
+    # Run every day at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  monitor-performance:
+    name: Monitor Model Performance
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Check Model Performance
+      id: check_performance
+      run: |
+        python scripts/check_model_performance.py
+      continue-on-error: true
+    
+    - name: Generate Performance Report
+      if: always()
+      run: |
+        echo "## Model Performance Report - $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -f reports/model_metrics.json ]; then
+          echo "### Metrics" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat reports/model_metrics.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ No metrics report found" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Create Issue on Performance Degradation
+      if: steps.check_performance.outcome == 'failure'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '⚠️ Model Performance Degradation Detected',
+            body: `## Performance Alert
+            
+            The automated model performance check has detected performance degradation.
+            
+            **Date**: ${new Date().toISOString()}
+            **Workflow Run**: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
+            
+            ### Action Required
+            - Review the performance metrics
+            - Consider retraining the model
+            - Check for data drift
+            
+            ### Details
+            See the workflow run for detailed metrics.`,
+            labels: ['performance', 'monitoring', 'urgent']
+          })
