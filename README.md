@@ -526,6 +526,3 @@ Le pipeline CI validera automatiquement vos modifications.
 - ✅ Tests automatisés
 - ✅ Monitoring des performances
 - ✅ Documentation complète
-# Test CI/CD
-#   T e s t   C I / C D  
- 
